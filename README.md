@@ -1,22 +1,24 @@
 <img width="1280" alt="readme-banner" src="https://github.com/user-attachments/assets/35332e92-44cb-425b-9dff-27bcf1023c6c">
 
-# [Project Name] 🎯
+# [Voice-Controlled Volume Adjuster] 🎯
 
 
 ## Basic Details
-### Team Name: [Name]
+### Team Name: [KrazyPitz]
 
 
 ### Team Members
-- Team Lead: [Name] - [College]
-- Member 2: [Name] - [College]
-- Member 3: [Name] - [College]
+- Team Lead: [Daniel Suresh] - [CUSAT]
+- Member 2: [Sreeram P] - [CUSAT]
+- Member 3: [Niju Roy] - [CUSAT]
 
 ### Project Description
-[2-3 lines about what your project does]
+A voice controlled application that turns your music up or down based on how loudly you yell at it !
+
+
 
 ### The Problem (that doesn't exist)
-[What ridiculous problem are you solving?]
+
 
 ### The Solution (that nobody asked for)
 [How are you solving it? Keep it fun!]
