@@ -14,6 +14,67 @@ import os
 import platform
 import subprocess
 from pygame import mixer
+import logging
+
+
+# Set up logging
+def setup_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('volume_control.log'),
+            logging.StreamHandler()
+        ]
+    )
+    return logging.getLogger('VolumeControl')
+
+logger = setup_logging()
+
+
+class Config:
+    def __init__(self):
+        self.config_file = "volume_control_config.json"
+        self.defaults = {
+            "sensitivity": 1.0,
+            "max_history": 100,
+            "update_interval": 100,
+            "audio_feedback": True,
+            "visualization_mode": "Line Graph",
+            "calibration": {
+                "min": 0,
+                "max": 100
+            }
+        }
+        self.settings = self.load_config()
+
+    def load_config(self):
+        try:
+            with open(self.config_file, 'r') as f:
+                return {**self.defaults, **json.load(f)}
+        except FileNotFoundError:
+            return self.defaults
+
+    def save_config(self):
+        try:
+            with open(self.config_file, 'w') as f:
+                json.dump(self.settings, f, indent=4)
+        except Exception as e:
+            logger.error(f"Failed to save config: {e}")
+
+class VolumeFilter:
+    def __init__(self, window_size=5):
+        self.window_size = window_size
+        self.volume_history = []
+
+    def smooth_volume(self, new_volume):
+        self.volume_history.append(new_volume)
+        if len(self.volume_history) > self.window_size:
+            self.volume_history.pop(0)
+        return sum(self.volume_history) / len(self.volume_history)
+
+    
+                
 
 class VolumeController:
     """Cross-platform volume control implementation"""
@@ -100,6 +161,7 @@ class VolumeControlApp:
         
         # Start update loop
         self.root.after(100, self._update_gui)
+        
 
     def _create_gui(self):
         # Main frame
