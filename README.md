@@ -257,6 +257,9 @@ The application includes automatic recovery for:
 - [ ] Voice command integration
 - [ ] Multi-device support
 
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
+
 ## Contributing
 1. Fork the repository
 2. Create feature branch (`git checkout -b feature/amazing-feature`)
