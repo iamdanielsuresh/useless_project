@@ -136,38 +136,138 @@ class VolumeControlApp:
         self.root.title("Voice Volume Controller")
         self.root.geometry("1000x800")
         
-        # Initialize volume controller
-        self.volume_controller = VolumeController()
+        # Initialize configuration
+        self.config = Config()
         
+        # Initialize volume controller
+        try:
+            self.volume_controller = VolumeController()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to initialize volume controller: {str(e)}")
+            self.root.destroy()
+            return
+            
         # Initialize pygame mixer for audio feedback
-        mixer.init()
+        try:
+            mixer.init()
+        except Exception as e:
+            logger.warning(f"Failed to initialize audio feedback: {e}")
+        
+        # Initialize volume filter
+        self.volume_filter = VolumeFilter()
         
         # Variables
         self.is_monitoring = False
         self.is_calibrating = False
-        self.sensitivity = tk.DoubleVar(value=1.0)
+        self.sensitivity = tk.DoubleVar(value=self.config.settings["sensitivity"])
         self.current_volume = tk.DoubleVar(value=self.volume_controller.get_volume())
         self.current_intensity = tk.DoubleVar(value=0.0)
-        self.visualization_mode = tk.StringVar(value="Line Graph")
-        self.audio_feedback = tk.BooleanVar(value=True)
+        self.visualization_mode = tk.StringVar(value=self.config.settings["visualization_mode"])
+        self.audio_feedback = tk.BooleanVar(value=self.config.settings["audio_feedback"])
         self.data_queue = queue.Queue()
+        
+        # Performance optimization variables
+        self.update_interval = self.config.settings["update_interval"]
+        self.last_plot_update = 0
+        self.plot_update_interval = 250  # ms
         
         # Calibration variables
         self.calibration_samples = []
-        self.calibration_min = 0
-        self.calibration_max = 100
+        self.calibration_min = self.config.settings["calibration"]["min"]
+        self.calibration_max = self.config.settings["calibration"]["max"]
         
         # History for plotting
         self.intensity_history = []
         self.volume_history = []
-        self.max_history = 100
+        self.max_history = self.config.settings["max_history"]
         
         # Create GUI
         self._create_gui()
         self._setup_plot()
+        self._setup_shortcuts()
         
         # Start update loop
-        self.root.after(100, self._update_gui)
+        self.root.after(self.update_interval, self._update_gui)
+        
+        logger.info("Application initialized successfully")
+
+    def _setup_shortcuts(self):
+        self.root.bind('<space>', lambda e: self._toggle_monitoring())
+        self.root.bind('<c>', lambda e: self._start_calibration())
+        self.root.bind('<Escape>', lambda e: self.root.quit())
+        self.root.bind('<Up>', lambda e: self._adjust_sensitivity(0.1))
+        self.root.bind('<Down>', lambda e: self._adjust_sensitivity(-0.1))
+
+    def _adjust_sensitivity(self, delta):
+        new_value = self.sensitivity.get() + delta
+        self.sensitivity.set(max(0.1, min(2.0, new_value)))
+        self.config.settings["sensitivity"] = self.sensitivity.get()
+        self.config.save_config()
+
+    def _start_monitoring(self):
+        def audio_callback(indata, frames, time, status):
+            try:
+                if status:
+                    logger.warning(f"Audio callback status: {status}")
+                
+                if not self.is_monitoring:
+                    raise sd.CallbackStop()
+                
+                volume_norm = np.linalg.norm(indata) * 10
+                intensity = 20 * math.log10(volume_norm) if volume_norm > 0 else 0
+                new_volume = self._calculate_volume_from_intensity(intensity)
+                
+                # Apply smoothing filter
+                smoothed_volume = self.volume_filter.smooth_volume(new_volume)
+                
+                try:
+                    self.volume_controller.set_volume(smoothed_volume)
+                except Exception as e:
+                    logger.error(f"Failed to set volume: {e}")
+                    self._handle_volume_control_error()
+                
+                self.data_queue.put((intensity, smoothed_volume))
+            except Exception as e:
+                logger.error(f"Audio callback error: {e}")
+                self._attempt_stream_recovery()
+
+        try:
+            self.stream = sd.InputStream(
+                callback=audio_callback,
+                channels=1,
+                samplerate=44100,
+                blocksize=int(44100 * 0.1)
+            )
+            self.stream.start()
+            logger.info("Audio monitoring started")
+        except Exception as e:
+            logger.error(f"Failed to start audio stream: {e}")
+            self.is_monitoring = False
+            self.toggle_button.configure(text="Start Monitoring")
+            messagebox.showerror("Error", f"Failed to start audio monitoring: {str(e)}")
+
+    def _attempt_stream_recovery(self):
+        """Attempt to recover from stream errors"""
+        try:
+            if hasattr(self, 'stream'):
+                self.stream.stop()
+            time.sleep(1)
+            self._start_monitoring()
+            logger.info("Stream recovery successful")
+        except Exception as e:
+            logger.error(f"Stream recovery failed: {e}")
+            self.is_monitoring = False
+            self.root.after(0, self._update_monitoring_state)
+
+    def _handle_volume_control_error(self):
+        """Handle volume control errors"""
+        try:
+            self.volume_controller = VolumeController()
+            logger.info("Volume controller reinitialized")
+        except Exception as e:
+            logger.error(f"Failed to reinitialize volume controller: {e}")
+            self.is_monitoring = False
+            self.root.after(0, self._update_monitoring_state)
         
 
     def _create_gui(self):
@@ -385,10 +485,35 @@ class VolumeControlApp:
         
         self.root.after(100, self._update_gui)
 
+    def _save_current_state(self):
+        """Save current state before closing"""
+        self.config.settings.update({
+            "sensitivity": self.sensitivity.get(),
+            "visualization_mode": self.visualization_mode.get(),
+            "audio_feedback": self.audio_feedback.get(),
+            "calibration": {
+                "min": self.calibration_min,
+                "max": self.calibration_max
+            }
+        })
+        self.config.save_config()
+        logger.info("Application state saved")
+
+    def __del__(self):
+        """Cleanup on destruction"""
+        self._save_current_state()
+        if hasattr(self, 'stream'):
+            self.stream.stop()
+        logger.info("Application shutdown complete")
+
 def main():
-    root = tk.Tk()
-    app = VolumeControlApp(root)
-    root.mainloop()
+    try:
+        root = tk.Tk()
+        app = VolumeControlApp(root)
+        root.mainloop()
+    except Exception as e:
+        logger.critical(f"Application crashed: {e}")
+        raise
 
 if __name__ == "__main__":
     main()
