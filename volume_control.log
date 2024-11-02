@@ -1,0 +1,32 @@
+2024-11-02 14:56:19,624 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 14:56:19,788 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 14:58:25,100 - VolumeControl - INFO - Application state saved
+2024-11-02 14:58:25,100 - VolumeControl - INFO - Application shutdown complete
+2024-11-02 14:58:44,310 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 14:58:44,472 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 15:29:11,613 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 15:29:11,981 - VolumeControl - CRITICAL - Application crashed: 'VolumeControlApp' object has no attribute '_start_calibration'
+2024-11-02 15:35:37,508 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 15:35:37,895 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 15:40:19,642 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 15:40:20,012 - VolumeControl - CRITICAL - Application crashed: 'VolumeControlApp' object has no attribute '_create_gui'
+2024-11-02 15:41:24,189 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 15:41:24,571 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 15:47:54,735 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 15:47:54,904 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 15:47:59,525 - VolumeControl - INFO - Application state saved
+2024-11-02 15:47:59,525 - VolumeControl - INFO - Application shutdown complete
+2024-11-02 15:55:30,968 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 15:55:31,113 - VolumeControl - CRITICAL - Application crashed: 'VolumeControlApp' object has no attribute '_create_gui'
+2024-11-02 15:57:08,676 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 15:57:08,856 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 16:02:33,764 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 16:02:33,933 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 16:03:13,858 - VolumeControl - INFO - Application state saved
+2024-11-02 16:03:13,858 - VolumeControl - INFO - Application shutdown complete
+2024-11-02 16:10:00,076 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 16:10:00,246 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 16:17:31,229 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 16:17:31,411 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 16:18:05,294 - VolumeControl - INFO - Application state saved
+2024-11-02 16:18:05,294 - VolumeControl - INFO - Application shutdown complete

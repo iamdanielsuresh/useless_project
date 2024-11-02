@@ -1,0 +1,11 @@
+{
+    "sensitivity": 1.0,
+    "max_history": 100,
+    "update_interval": 100,
+    "audio_feedback": true,
+    "visualization_mode": "Line Graph",
+    "calibration": {
+        "min": 16.174428479905142,
+        "max": 40.95332771435992
+    }
+}
