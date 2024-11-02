@@ -133,23 +133,17 @@ class CalibrationManager:
         self.samples = []
         self.min_intensity = 0
         self.max_intensity = 100
-        self.calibration_duration = 10  # Extended to 10 seconds
+        self.calibration_duration = 15  # Simplified to 15 seconds
         self.is_calibrating = False
         self.start_time = None
         self.noise_floor = None
-        self.required_samples = 100  # Minimum required samples
-        self.calibration_phases = [
-            "Silence", "Normal speaking", "Loud speaking"
-        ]
-        self.current_phase = 0
-        self.phase_duration = 3  # seconds per phase
+        self.required_samples = 50  # Reduced minimum required samples
         
     def start_calibration(self):
         """Start a new calibration session"""
         self.samples = []
         self.is_calibrating = True
         self.start_time = time.time()
-        self.current_phase = 0
         return True
         
     def add_sample(self, intensity):
@@ -162,29 +156,12 @@ class CalibrationManager:
         if not self.is_calibrating or not self.start_time:
             return 100
         elapsed = time.time() - self.start_time
-        total_duration = self.phase_duration * len(self.calibration_phases)
-        return min(100, (elapsed / total_duration) * 100)
-    
-    def get_current_phase(self):
-        """Get the current calibration phase"""
-        if not self.is_calibrating:
-            return ""
-        elapsed = time.time() - self.start_time
-        phase_idx = min(int(elapsed / self.phase_duration), 
-                       len(self.calibration_phases) - 1)
-        return self.calibration_phases[phase_idx]
-        
-    def should_advance_phase(self):
-        """Check if it's time to advance to next phase"""
-        if not self.is_calibrating or not self.start_time:
-            return False
-        elapsed = time.time() - self.start_time
-        return elapsed > (self.current_phase + 1) * self.phase_duration
+        return min(100, (elapsed / self.calibration_duration) * 100)
         
     def finish_calibration(self):
         """Process calibration data and compute thresholds"""
         if len(self.samples) < self.required_samples:
-            return False, f"Insufficient samples collected ({len(self.samples)} < {self.required_samples}). Please speak more during calibration."
+            return False, f"Insufficient samples collected. Please try again."
             
         # Remove outliers using IQR method
         samples = np.array(self.samples)
@@ -202,12 +179,8 @@ class CalibrationManager:
         self.noise_floor = np.percentile(filtered_samples, 10)
         
         # Set min/max thresholds
-        self.min_intensity = np.percentile(filtered_samples, 20)  # 20th percentile
-        self.max_intensity = np.percentile(filtered_samples, 90)  # 90th percentile
-        
-        # Validate the range
-        if self.max_intensity - self.min_intensity < 10:
-            return False, "Insufficient dynamic range detected. Please vary your speaking volume more."
+        self.min_intensity = np.percentile(filtered_samples, 20)
+        self.max_intensity = np.percentile(filtered_samples, 90)
         
         self.is_calibrating = False
         return True, "Calibration completed successfully"
@@ -278,7 +251,7 @@ class VolumeControlApp:
 
 
     def _create_calibration_gui(self):
-        """Create calibration-specific GUI elements"""
+        """Create simplified calibration GUI elements"""
         calibration_frame = ttk.LabelFrame(self.main_frame, text="Calibration", padding="10")
         calibration_frame.pack(fill=tk.X, padx=5, pady=5)
         
@@ -302,23 +275,16 @@ class VolumeControlApp:
         )
         self.calibration_progress_bar.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
         
-        # Instructions and status
-        self.calibration_instructions = ttk.Label(
-            calibration_frame, 
-            text="Click 'Start Calibration' and follow the instructions",
-            wraplength=400
-        )
-        self.calibration_instructions.pack(fill=tk.X, pady=5)
-        
+        # Status
         self.calibration_status = ttk.Label(
             calibration_frame, 
-            text="Not calibrated",
+            text="Click 'Start Calibration' to detect ambient sound levels (15 seconds)",
             wraplength=400
         )
         self.calibration_status.pack(fill=tk.X, pady=5)
         
     def _toggle_calibration(self):
-        """Start or stop calibration process"""
+        """Start or stop simplified calibration process"""
         if not self.calibration.is_calibrating:
             # Start the audio stream if it's not already running
             if not hasattr(self, 'stream') or not self.stream.active:
@@ -327,19 +293,16 @@ class VolumeControlApp:
             # Start calibration
             self.calibration.start_calibration()
             self.calibrate_button.configure(text="Cancel Calibration")
-            
-            # Initial instructions
-            self.calibration_instructions.configure(
-                text="Starting calibration...\nPhase 1: Please remain silent"
+            self.calibration_status.configure(
+                text="Calibrating... Please wait while we measure ambient sound levels."
             )
             
             # Schedule progress updates
             self._update_calibration_progress()
             
             # Schedule automatic completion
-            total_duration = self.calibration.phase_duration * len(self.calibration.calibration_phases)
             self.root.after(
-                int(total_duration * 1000), 
+                int(self.calibration.calibration_duration * 1000), 
                 self._complete_calibration
             )
         else:
@@ -347,21 +310,19 @@ class VolumeControlApp:
             self.calibration.is_calibrating = False
             self._reset_calibration_gui()
             
+                
     def _update_calibration_progress(self):
         """Update calibration progress bar"""
         if self.calibration.is_calibrating:
             progress = self.calibration.get_progress()
             self.calibration_progress.set(progress)
             
-            # Update phase instructions
-            current_phase = self.calibration.get_current_phase()
-            remaining_time = max(0, self.calibration.phase_duration - 
-                            (time.time() - self.calibration.start_time) % 
-                            self.calibration.phase_duration)
+            # Update status with time remaining
+            remaining_time = max(0, self.calibration.calibration_duration - 
+                            (time.time() - self.calibration.start_time))
             
-            self.calibration_instructions.configure(
-                text=f"Current Phase: {current_phase}\n"
-                    f"Time remaining: {remaining_time:.1f}s\n"
+            self.calibration_status.configure(
+                text=f"Calibrating... {remaining_time:.1f} seconds remaining\n"
                     f"Samples collected: {len(self.calibration.samples)}"
             )
         
@@ -406,8 +367,8 @@ class VolumeControlApp:
         """Reset calibration GUI elements"""
         self.calibrate_button.configure(text="Start Calibration")
         self.calibration_progress.set(0)
-        self.calibration_instructions.configure(
-            text="Click 'Start Calibration' and follow the instructions"
+        self.calibration_status.configure(
+            text="Click 'Start Calibration' to detect ambient sound levels"
         )
         
     def _calculate_volume_from_intensity(self, intensity):
@@ -459,12 +420,12 @@ class VolumeControlApp:
                 volume_norm = np.linalg.norm(indata) * 10
                 intensity = 20 * math.log10(volume_norm) if volume_norm > 0 else 0
                 
-                # Always add samples during calibration
+                # Always process samples during calibration
                 if self.calibration.is_calibrating:
                     self.calibration.add_sample(intensity)
-                
+                    self.data_queue.put((intensity, self.current_volume.get()))
                 # Only process volume changes if monitoring
-                if self.is_monitoring:
+                elif self.is_monitoring:
                     new_volume = self._calculate_volume_from_intensity(intensity)
                     
                     # Apply smoothing filter
@@ -477,9 +438,6 @@ class VolumeControlApp:
                         self._handle_volume_control_error()
                     
                     self.data_queue.put((intensity, smoothed_volume))
-                else:
-                    # Still update the display during calibration
-                    self.data_queue.put((intensity, self.current_volume.get()))
                     
             except Exception as e:
                 logger.error(f"Audio callback error: {e}")
@@ -592,38 +550,6 @@ class VolumeControlApp:
             self.is_monitoring = False
             self.toggle_button.configure(text="Start Monitoring")
 
-    def _start_monitoring(self):
-        def audio_callback(indata, frames, time, status):
-            if status:
-                print(status)
-            
-            if not self.is_monitoring:
-                raise sd.CallbackStop()
-            
-            volume_norm = np.linalg.norm(indata) * 10
-            intensity = 20 * math.log10(volume_norm) if volume_norm > 0 else 0
-            new_volume = self._calculate_volume_from_intensity(intensity)
-            
-            # Set system volume
-            self.volume_controller.set_volume(new_volume)
-            
-            # Update data
-            self.data_queue.put((intensity, new_volume))
-
-        try:
-            self.stream = sd.InputStream(
-                callback=audio_callback,
-                channels=1,
-                samplerate=44100,
-                blocksize=int(44100 * 0.1)
-            )
-            self.stream.start()
-        except Exception as e:
-            print(f"Error starting audio stream: {str(e)}")
-            self.is_monitoring = False
-            self.toggle_button.configure(text="Start Monitoring")
-            messagebox.showerror("Error", f"Failed to start audio monitoring: {str(e)}")
-
     def _calculate_volume_from_intensity(self, intensity):
         if self.is_calibrating:
             self.calibration_samples.append(intensity)
@@ -636,27 +562,6 @@ class VolumeControlApp:
         normalized *= self.sensitivity.get()
         return min(max(normalized, 0), 1)
 
-    # def _start_calibration(self):
-    #     if not self.is_calibrating:
-    #         self.is_calibrating = True
-    #         self.calibration_samples = []
-    #         self.calibrate_button.configure(text="Stop Calibration")
-    #         messagebox.showinfo("Calibration Started", 
-    #                           "Please make sounds at various volumes for calibration.\n"
-    #                           "Click 'Stop Calibration' when done.")
-    #     else:
-    #         self._finish_calibration()
-
-    # def _finish_calibration(self):
-    #     self.is_calibrating = False
-    #     self.calibrate_button.configure(text="Calibrate")
-        
-    #     if len(self.calibration_samples) > 0:
-    #         self.calibration_min = min(self.calibration_samples)
-    #         self.calibration_max = max(self.calibration_samples)
-    #         messagebox.showinfo("Calibration Complete",
-    #                           f"Calibration range: {self.calibration_min:.1f} - "
-    #                           f"{self.calibration_max:.1f} dB")
 
     def _setup_plot(self):
         self.fig = Figure(figsize=(8, 4), dpi=100)

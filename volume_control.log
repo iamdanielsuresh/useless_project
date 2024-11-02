@@ -30,3 +30,27 @@
 2024-11-02 16:17:31,411 - VolumeControl - INFO - Application initialized successfully
 2024-11-02 16:18:05,294 - VolumeControl - INFO - Application state saved
 2024-11-02 16:18:05,294 - VolumeControl - INFO - Application shutdown complete
+2024-11-02 20:37:54,607 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 20:37:54,812 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 20:42:17,734 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 20:42:17,906 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 22:47:28,564 - VolumeControl - INFO - Application state saved
+2024-11-02 22:47:28,565 - VolumeControl - INFO - Application shutdown complete
+2024-11-02 22:59:37,684 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 22:59:37,864 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 23:01:47,482 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 23:01:47,650 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 23:02:11,927 - VolumeControl - ERROR - Failed to save config: name 'open' is not defined
+2024-11-02 23:02:11,928 - VolumeControl - INFO - Application state saved
+2024-11-02 23:02:11,928 - VolumeControl - INFO - Application shutdown complete
+2024-11-02 23:09:35,930 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 23:09:36,106 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 23:09:42,228 - VolumeControl - INFO - Audio monitoring started
+2024-11-02 23:10:04,116 - VolumeControl - INFO - Audio monitoring started
+2024-11-02 23:10:45,197 - VolumeControl - ERROR - Failed to start audio stream: Error opening InputStream: Internal PortAudio error [PaErrorCode -9986]
+2024-11-02 23:10:48,621 - VolumeControl - ERROR - Failed to start audio stream: Error opening InputStream: Internal PortAudio error [PaErrorCode -9986]
+2024-11-02 23:10:52,784 - VolumeControl - INFO - Application state saved
+2024-11-02 23:10:52,784 - VolumeControl - INFO - Application shutdown complete
+2024-11-02 23:11:00,514 - VolumeControl - INFO - Volume controller initialized for Darwin
+2024-11-02 23:11:00,688 - VolumeControl - INFO - Application initialized successfully
+2024-11-02 23:11:04,193 - VolumeControl - INFO - Audio monitoring started
