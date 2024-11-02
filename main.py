@@ -80,48 +80,55 @@ class VolumeController:
     """Cross-platform volume control implementation"""
     def __init__(self):
         self.system = platform.system()
-        if self.system == "Windows":
-            # Import Windows-specific libraries only on Windows
-            from ctypes import cast, POINTER
-            from comtypes import CLSCTX_ALL
-            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-            
-            devices = AudioUtilities.GetSpeakers()
-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            self.volume = cast(interface, POINTER(IAudioEndpointVolume))
-        
+        try:
+            if self.system == "Windows":
+                from ctypes import cast, POINTER
+                from comtypes import CLSCTX_ALL
+                from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+                
+                devices = AudioUtilities.GetSpeakers()
+                interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+                self.volume = cast(interface, POINTER(IAudioEndpointVolume))
+            logger.info(f"Volume controller initialized for {self.system}")
+        except Exception as e:
+            logger.error(f"Failed to initialize volume controller: {e}")
+            raise
+
     def set_volume(self, volume_level):
         """Set system volume (0.0 to 1.0)"""
-        volume_level = max(0.0, min(1.0, volume_level))
-        
-        if self.system == "Windows":
-            self.volume.SetMasterVolumeLevelScalar(volume_level, None)
-        elif self.system == "Darwin":  # macOS
-            volume_level_percent = int(volume_level * 100)
-            os.system(f"osascript -e 'set volume output volume {volume_level_percent}'")
-        elif self.system == "Linux":
-            volume_level_percent = int(volume_level * 100)
-            os.system(f"amixer -D pulse sset Master {volume_level_percent}%")
+        try:
+            volume_level = max(0.0, min(1.0, volume_level))
+            
+            if self.system == "Windows":
+                self.volume.SetMasterVolumeLevelScalar(volume_level, None)
+            elif self.system == "Darwin":  # macOS
+                volume_level_percent = int(volume_level * 100)
+                os.system(f"osascript -e 'set volume output volume {volume_level_percent}'")
+            elif self.system == "Linux":
+                volume_level_percent = int(volume_level * 100)
+                os.system(f"amixer -D pulse sset Master {volume_level_percent}%")
+            logger.debug(f"Volume set to {volume_level}")
+        except Exception as e:
+            logger.error(f"Failed to set volume: {e}")
+            raise
 
     def get_volume(self):
         """Get current system volume (0.0 to 1.0)"""
-        if self.system == "Windows":
-            return self.volume.GetMasterVolumeLevelScalar()
-        elif self.system == "Darwin":  # macOS
-            cmd = "osascript -e 'output volume of (get volume settings)'"
-            try:
+        try:
+            if self.system == "Windows":
+                return self.volume.GetMasterVolumeLevelScalar()
+            elif self.system == "Darwin":  # macOS
+                cmd = "osascript -e 'output volume of (get volume settings)'"
                 result = subprocess.check_output(cmd, shell=True).strip()
                 return float(result) / 100.0
-            except:
-                return 0.0
-        elif self.system == "Linux":
-            try:
+            elif self.system == "Linux":
                 cmd = "amixer -D pulse sget Master | grep 'Left:' | awk -F'[][]' '{ print $2 }'"
                 result = subprocess.check_output(cmd, shell=True).strip()
                 return float(result.decode('utf-8').replace('%', '')) / 100.0
-            except:
-                return 0.0
-        return 0.0
+        except Exception as e:
+            logger.error(f"Failed to get volume: {e}")
+            return 0.0
+
 
 class VolumeControlApp:
     def __init__(self, root):
