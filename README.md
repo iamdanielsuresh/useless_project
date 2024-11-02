@@ -21,7 +21,7 @@ A voice controlled application that turns your music up or down based on how lou
 Control your volume by yelling—because who needs buttons when you have lungs?
 
 ### The Solution (that nobody asked for)
-[How are you solving it? Keep it fun!]
+An app that adjusts your device’s volume based on how loudly you yell—perfect for those moments when your voice needs to be heard... by your speakers!
 
 ## Technical Details
 ### Technologies/Components Used
