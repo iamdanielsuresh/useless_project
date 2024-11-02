@@ -1,12 +1,9 @@
 import sounddevice as sd
 import numpy as np
-import pycaw.pycaw as pycaw
-from ctypes import cast, POINTER
-from comtypes import CLSCTX_ALL
-from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 import math
 import tkinter as tk
 from tkinter import ttk, messagebox
+import matplotlib as plt
 import threading
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -14,14 +11,65 @@ import queue
 import time
 import json
 import os
+import platform
+import subprocess
 from pygame import mixer
-import colorsys
+
+class VolumeController:
+    """Cross-platform volume control implementation"""
+    def __init__(self):
+        self.system = platform.system()
+        if self.system == "Windows":
+            # Import Windows-specific libraries only on Windows
+            from ctypes import cast, POINTER
+            from comtypes import CLSCTX_ALL
+            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+            
+            devices = AudioUtilities.GetSpeakers()
+            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+            self.volume = cast(interface, POINTER(IAudioEndpointVolume))
+        
+    def set_volume(self, volume_level):
+        """Set system volume (0.0 to 1.0)"""
+        volume_level = max(0.0, min(1.0, volume_level))
+        
+        if self.system == "Windows":
+            self.volume.SetMasterVolumeLevelScalar(volume_level, None)
+        elif self.system == "Darwin":  # macOS
+            volume_level_percent = int(volume_level * 100)
+            os.system(f"osascript -e 'set volume output volume {volume_level_percent}'")
+        elif self.system == "Linux":
+            volume_level_percent = int(volume_level * 100)
+            os.system(f"amixer -D pulse sset Master {volume_level_percent}%")
+
+    def get_volume(self):
+        """Get current system volume (0.0 to 1.0)"""
+        if self.system == "Windows":
+            return self.volume.GetMasterVolumeLevelScalar()
+        elif self.system == "Darwin":  # macOS
+            cmd = "osascript -e 'output volume of (get volume settings)'"
+            try:
+                result = subprocess.check_output(cmd, shell=True).strip()
+                return float(result) / 100.0
+            except:
+                return 0.0
+        elif self.system == "Linux":
+            try:
+                cmd = "amixer -D pulse sget Master | grep 'Left:' | awk -F'[][]' '{ print $2 }'"
+                result = subprocess.check_output(cmd, shell=True).strip()
+                return float(result.decode('utf-8').replace('%', '')) / 100.0
+            except:
+                return 0.0
+        return 0.0
 
 class VolumeControlApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Advanced Voice Volume Controller")
+        self.root.title("Voice Volume Controller")
         self.root.geometry("1000x800")
+        
+        # Initialize volume controller
+        self.volume_controller = VolumeController()
         
         # Initialize pygame mixer for audio feedback
         mixer.init()
@@ -30,7 +78,7 @@ class VolumeControlApp:
         self.is_monitoring = False
         self.is_calibrating = False
         self.sensitivity = tk.DoubleVar(value=1.0)
-        self.current_volume = tk.DoubleVar(value=0.0)
+        self.current_volume = tk.DoubleVar(value=self.volume_controller.get_volume())
         self.current_intensity = tk.DoubleVar(value=0.0)
         self.visualization_mode = tk.StringVar(value="Line Graph")
         self.audio_feedback = tk.BooleanVar(value=True)
@@ -46,9 +94,7 @@ class VolumeControlApp:
         self.volume_history = []
         self.max_history = 100
         
-        # Load presets
-        self.presets = self.load_presets()
-        
+        # Create GUI
         self._create_gui()
         self._setup_plot()
         
@@ -56,30 +102,12 @@ class VolumeControlApp:
         self.root.after(100, self._update_gui)
 
     def _create_gui(self):
-        # Main notebook for tabs
-        self.notebook = ttk.Notebook(self.root)
-        self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        # Main frame
+        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Main control tab
-        main_tab = ttk.Frame(self.notebook)
-        self.notebook.add(main_tab, text="Main Controls")
-        
-        # Presets tab
-        presets_tab = ttk.Frame(self.notebook)
-        self.notebook.add(presets_tab, text="Presets")
-        
-        # Settings tab
-        settings_tab = ttk.Frame(self.notebook)
-        self.notebook.add(settings_tab, text="Settings")
-        
-        # Setup each tab
-        self._setup_main_tab(main_tab)
-        self._setup_presets_tab(presets_tab)
-        self._setup_settings_tab(settings_tab)
-
-    def _setup_main_tab(self, parent):
         # Control frame
-        control_frame = ttk.LabelFrame(parent, text="Controls", padding="10")
+        control_frame = ttk.LabelFrame(main_frame, text="Controls", padding="10")
         control_frame.pack(fill=tk.X, padx=5, pady=5)
         
         # Start/Stop button
@@ -93,7 +121,7 @@ class VolumeControlApp:
         self.calibrate_button.pack(side=tk.LEFT, padx=5)
         
         # Sensitivity control
-        sensitivity_frame = ttk.LabelFrame(parent, text="Sensitivity", padding="10")
+        sensitivity_frame = ttk.LabelFrame(main_frame, text="Sensitivity", padding="10")
         sensitivity_frame.pack(fill=tk.X, padx=5, pady=5)
         
         sensitivity_slider = ttk.Scale(sensitivity_frame, from_=0.1, to=2.0,
@@ -101,25 +129,29 @@ class VolumeControlApp:
         sensitivity_slider.pack(fill=tk.X, padx=5)
         
         # Metrics frame
-        metrics_frame = ttk.LabelFrame(parent, text="Current Metrics", padding="10")
+        metrics_frame = ttk.LabelFrame(main_frame, text="Current Metrics", padding="10")
         metrics_frame.pack(fill=tk.X, padx=5, pady=5)
         
         # Volume indicator
-        ttk.Label(metrics_frame, text="Volume:").pack(side=tk.LEFT, padx=5)
-        self.volume_bar = ttk.Progressbar(metrics_frame, length=200, mode='determinate')
+        volume_frame = ttk.Frame(metrics_frame)
+        volume_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(volume_frame, text="Volume:").pack(side=tk.LEFT, padx=5)
+        self.volume_bar = ttk.Progressbar(volume_frame, length=200, mode='determinate')
         self.volume_bar.pack(side=tk.LEFT, padx=5)
         
         # Intensity indicator
-        ttk.Label(metrics_frame, text="Intensity (dB):").pack(side=tk.LEFT, padx=5)
-        self.intensity_bar = ttk.Progressbar(metrics_frame, length=200, mode='determinate')
+        intensity_frame = ttk.Frame(metrics_frame)
+        intensity_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(intensity_frame, text="Intensity (dB):").pack(side=tk.LEFT, padx=5)
+        self.intensity_bar = ttk.Progressbar(intensity_frame, length=200, mode='determinate')
         self.intensity_bar.pack(side=tk.LEFT, padx=5)
         
         # Visualization frame
-        viz_frame = ttk.LabelFrame(parent, text="Visualization", padding="10")
+        viz_frame = ttk.LabelFrame(main_frame, text="Visualization", padding="10")
         viz_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         # Visualization mode selector
-        viz_modes = ["Line Graph", "Bar Graph", "Spectrum", "Circular"]
+        viz_modes = ["Line Graph", "Bar Graph", "Meter"]
         viz_selector = ttk.OptionMenu(viz_frame, self.visualization_mode, 
                                     self.visualization_mode.get(), *viz_modes,
                                     command=self._change_visualization)
@@ -129,172 +161,58 @@ class VolumeControlApp:
         self.plot_frame = ttk.Frame(viz_frame)
         self.plot_frame.pack(fill=tk.BOTH, expand=True)
 
-    def _setup_presets_tab(self, parent):
-        # Presets list
-        presets_frame = ttk.LabelFrame(parent, text="Volume Presets", padding="10")
-        presets_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # Preset controls
-        controls_frame = ttk.Frame(presets_frame)
-        controls_frame.pack(fill=tk.X, padx=5, pady=5)
-        
-        # New preset entry
-        self.preset_name = tk.StringVar()
-        preset_entry = ttk.Entry(controls_frame, textvariable=self.preset_name)
-        preset_entry.pack(side=tk.LEFT, padx=5)
-        
-        # Save preset button
-        save_btn = ttk.Button(controls_frame, text="Save Current Settings",
-                             command=self._save_preset)
-        save_btn.pack(side=tk.LEFT, padx=5)
-        
-        # Presets listbox
-        self.presets_list = tk.Listbox(presets_frame, height=10)
-        self.presets_list.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        self._update_presets_list()
-        
-        # Load and Delete buttons
-        btn_frame = ttk.Frame(presets_frame)
-        btn_frame.pack(fill=tk.X, padx=5, pady=5)
-        
-        load_btn = ttk.Button(btn_frame, text="Load Selected",
-                             command=self._load_preset)
-        load_btn.pack(side=tk.LEFT, padx=5)
-        
-        delete_btn = ttk.Button(btn_frame, text="Delete Selected",
-                               command=self._delete_preset)
-        delete_btn.pack(side=tk.LEFT, padx=5)
+    def _toggle_monitoring(self):
+        if not self.is_monitoring:
+            self.is_monitoring = True
+            self.toggle_button.configure(text="Stop Monitoring")
+            self._start_monitoring()
+        else:
+            self.is_monitoring = False
+            self.toggle_button.configure(text="Start Monitoring")
 
-    def _setup_settings_tab(self, parent):
-        settings_frame = ttk.LabelFrame(parent, text="Application Settings", padding="10")
-        settings_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # Audio feedback toggle
-        feedback_check = ttk.Checkbutton(settings_frame, text="Enable Audio Feedback",
-                                       variable=self.audio_feedback)
-        feedback_check.pack(anchor=tk.W, padx=5, pady=5)
-        
-        # History length control
-        history_frame = ttk.Frame(settings_frame)
-        history_frame.pack(fill=tk.X, padx=5, pady=5)
-        
-        ttk.Label(history_frame, text="History Length:").pack(side=tk.LEFT)
-        history_scale = ttk.Scale(history_frame, from_=50, to=500,
-                                orient=tk.HORIZONTAL,
-                                command=lambda v: self._set_history_length(int(float(v))))
-        history_scale.set(self.max_history)
-        history_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-
-    def _setup_plot(self):
-        self.fig = Figure(figsize=(8, 4), dpi=100)
-        self.ax = self.fig.add_subplot(111)
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
-        self.canvas.draw()
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        
-        # Initialize different visualization types
-        self._setup_line_plot()
-
-    def _setup_line_plot(self):
-        self.ax.clear()
-        self.intensity_line, = self.ax.plot([], [], label='Intensity', color='blue')
-        self.volume_line, = self.ax.plot([], [], label='Volume', color='red')
-        self.ax.set_ylim(-10, 100)
-        self.ax.set_xlabel('Time')
-        self.ax.set_ylabel('Level')
-        self.ax.legend()
-        self.ax.grid(True)
-
-    def _setup_bar_plot(self):
-        self.ax.clear()
-        self.ax.set_ylim(0, 100)
-        self.ax.set_xlabel('Metric')
-        self.ax.set_ylabel('Level')
-
-    def _setup_spectrum_plot(self):
-        self.ax.clear()
-        self.ax.set_ylim(0, 100)
-        self.ax.set_xlim(0, 100)
-        self.ax.set_xlabel('Frequency')
-        self.ax.set_ylabel('Magnitude')
-
-    def _setup_circular_plot(self):
-        self.ax.clear()
-        self.ax.set_aspect('equal')
-        self.ax.set_xlim(-1.2, 1.2)
-        self.ax.set_ylim(-1.2, 1.2)
-
-    def _change_visualization(self, mode):
-        if mode == "Line Graph":
-            self._setup_line_plot()
-        elif mode == "Bar Graph":
-            self._setup_bar_plot()
-        elif mode == "Spectrum":
-            self._setup_spectrum_plot()
-        else:  # Circular
-            self._setup_circular_plot()
-
-    def _update_plot(self):
-        mode = self.visualization_mode.get()
-        
-        if mode == "Line Graph":
-            self._update_line_plot()
-        elif mode == "Bar Graph":
-            self._update_bar_plot()
-        elif mode == "Spectrum":
-            self._update_spectrum_plot()
-        else:  # Circular
-            self._update_circular_plot()
-        
-        self.canvas.draw()
-
-    def _update_line_plot(self):
-        if len(self.intensity_history) > self.max_history:
-            self.intensity_history = self.intensity_history[-self.max_history:]
-            self.volume_history = self.volume_history[-self.max_history:]
+    def _start_monitoring(self):
+        def audio_callback(indata, frames, time, status):
+            if status:
+                print(status)
             
-        x = range(len(self.intensity_history))
-        self.intensity_line.set_data(x, self.intensity_history)
-        self.volume_line.set_data(x, [v * 100 for v in self.volume_history])
-        self.ax.set_xlim(0, max(self.max_history, len(x)))
+            if not self.is_monitoring:
+                raise sd.CallbackStop()
+            
+            volume_norm = np.linalg.norm(indata) * 10
+            intensity = 20 * math.log10(volume_norm) if volume_norm > 0 else 0
+            new_volume = self._calculate_volume_from_intensity(intensity)
+            
+            # Set system volume
+            self.volume_controller.set_volume(new_volume)
+            
+            # Update data
+            self.data_queue.put((intensity, new_volume))
 
-    def _update_bar_plot(self):
-        self.ax.clear()
-        self.ax.bar(['Intensity', 'Volume'], 
-                   [self.current_intensity.get(), self.current_volume.get() * 100],
-                   color=['blue', 'red'])
-        self.ax.set_ylim(0, 100)
+        try:
+            self.stream = sd.InputStream(
+                callback=audio_callback,
+                channels=1,
+                samplerate=44100,
+                blocksize=int(44100 * 0.1)
+            )
+            self.stream.start()
+        except Exception as e:
+            print(f"Error starting audio stream: {str(e)}")
+            self.is_monitoring = False
+            self.toggle_button.configure(text="Start Monitoring")
+            messagebox.showerror("Error", f"Failed to start audio monitoring: {str(e)}")
 
-    def _update_spectrum_plot(self):
-        self.ax.clear()
-        # Create a simple spectrum-like visualization
-        x = np.linspace(0, 100, 100)
-        intensity = self.current_intensity.get()
-        volume = self.current_volume.get() * 100
-        y = intensity * np.exp(-x/20) + volume * np.exp(-x/30)
-        self.ax.fill_between(x, y, alpha=0.5)
-        self.ax.set_ylim(0, 100)
-
-    def _update_circular_plot(self):
-        self.ax.clear()
-        self.ax.set_aspect('equal')
+    def _calculate_volume_from_intensity(self, intensity):
+        if self.is_calibrating:
+            self.calibration_samples.append(intensity)
+            return self.current_volume.get()
         
-        # Create circular visualization
-        intensity = self.current_intensity.get() / 100
-        volume = self.current_volume.get()
+        min_intensity = self.calibration_min if self.calibration_min != 0 else 0
+        max_intensity = self.calibration_max if self.calibration_max != 100 else 100
         
-        # Draw intensity circle
-        intensity_circle = plt.Circle((0, 0), intensity, 
-                                    color='blue', alpha=0.3)
-        self.ax.add_artist(intensity_circle)
-        
-        # Draw volume circle
-        volume_circle = plt.Circle((0, 0), volume, 
-                                 color='red', alpha=0.3)
-        self.ax.add_artist(volume_circle)
-        
-        self.ax.set_xlim(-1.2, 1.2)
-        self.ax.set_ylim(-1.2, 1.2)
+        normalized = (intensity - min_intensity) / (max_intensity - min_intensity)
+        normalized *= self.sensitivity.get()
+        return min(max(normalized, 0), 1)
 
     def _start_calibration(self):
         if not self.is_calibrating:
@@ -318,19 +236,90 @@ class VolumeControlApp:
                               f"Calibration range: {self.calibration_min:.1f} - "
                               f"{self.calibration_max:.1f} dB")
 
-    def _calculate_volume_from_intensity(self, intensity):
-        if self.is_calibrating:
-            self.calibration_samples.append(intensity)
-            return self.current_volume.get()
-            
-        # Use calibration values if available
-        min_intensity = self.calibration_min if self.calibration_min != 0 else 0
-        max_intensity = self.calibration_max if self.calibration_max != 100 else 100
+    def _setup_plot(self):
+        self.fig = Figure(figsize=(8, 4), dpi=100)
+        self.ax = self.fig.add_subplot(111)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         
-        normalized = (intensity - min_intensity) / (max_intensity - min_intensity)
-        normalized *= self.sensitivity.get()
-        return min(max(normalized, 0), 1)
+        self._setup_line_plot()
 
-    def load_presets(self):
+    def _setup_line_plot(self):
+        self.ax.clear()
+        self.intensity_line, = self.ax.plot([], [], label='Intensity', color='blue')
+        self.volume_line, = self.ax.plot([], [], label='Volume', color='red')
+        self.ax.set_ylim(-10, 100)
+        self.ax.set_xlabel('Time')
+        self.ax.set_ylabel('Level')
+        self.ax.legend()
+        self.ax.grid(True)
+
+    def _change_visualization(self, mode):
+        self._setup_plot()  # Reset plot for new visualization mode
+
+    def _update_plot(self):
+        mode = self.visualization_mode.get()
+        
+        if mode == "Line Graph":
+            if len(self.intensity_history) > self.max_history:
+                self.intensity_history = self.intensity_history[-self.max_history:]
+                self.volume_history = self.volume_history[-self.max_history:]
+                
+            x = range(len(self.intensity_history))
+            self.intensity_line.set_data(x, self.intensity_history)
+            self.volume_line.set_data(x, [v * 100 for v in self.volume_history])
+            self.ax.set_xlim(0, max(self.max_history, len(x)))
+        
+        elif mode == "Bar Graph":
+            self.ax.clear()
+            self.ax.bar(['Intensity', 'Volume'], 
+                       [self.current_intensity.get(), self.current_volume.get() * 100],
+                       color=['blue', 'red'])
+            self.ax.set_ylim(0, 100)
+        
+        elif mode == "Meter":
+            self.ax.clear()
+            intensity = self.current_intensity.get()
+            volume = self.current_volume.get() * 100
+            
+            # Create VU meter style visualization
+            self.ax.add_patch(plt.Rectangle((0, 0), intensity, 0.3, color='blue', alpha=0.6))
+            self.ax.add_patch(plt.Rectangle((0, 0.7), volume, 0.3, color='red', alpha=0.6))
+            
+            self.ax.set_xlim(0, 100)
+            self.ax.set_ylim(0, 1)
+            self.ax.set_xticks(range(0, 101, 10))
+            self.ax.set_yticks([0.15, 0.85])
+            self.ax.set_yticklabels(['Intensity', 'Volume'])
+        
+        self.canvas.draw()
+
+    def _update_gui(self):
         try:
-            with open('volume_presets.json', 'r')
+            while True:
+                intensity, volume = self.data_queue.get_nowait()
+                self.current_intensity.set(intensity)
+                self.current_volume.set(volume)
+                
+                self.intensity_history.append(intensity)
+                self.volume_history.append(volume)
+                
+                # Update progress bars
+                self.volume_bar['value'] = volume * 100
+                self.intensity_bar['value'] = min(100, intensity)
+                
+                self._update_plot()
+                
+        except queue.Empty:
+            pass
+        
+        self.root.after(100, self._update_gui)
+
+def main():
+    root = tk.Tk()
+    app = VolumeControlApp(root)
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
