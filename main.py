@@ -128,6 +128,61 @@ class VolumeController:
         except Exception as e:
             logger.error(f"Failed to get volume: {e}")
             return 0.0
+class CalibrationManager:
+    def __init__(self):
+        self.samples = []
+        self.min_intensity = 0
+        self.max_intensity = 100
+        self.calibration_duration = 5  # seconds
+        self.is_calibrating = False
+        self.start_time = None
+        self.noise_floor = None
+        
+    def start_calibration(self):
+        """Start a new calibration session"""
+        self.samples = []
+        self.is_calibrating = True
+        self.start_time = time.time()
+        return True
+        
+    def add_sample(self, intensity):
+        """Add a new intensity sample during calibration"""
+        if self.is_calibrating:
+            self.samples.append(intensity)
+            
+    def get_progress(self):
+        """Get calibration progress as percentage"""
+        if not self.is_calibrating or not self.start_time:
+            return 100
+        elapsed = time.time() - self.start_time
+        return min(100, (elapsed / self.calibration_duration) * 100)
+        
+    def finish_calibration(self):
+        """Process calibration data and compute thresholds"""
+        if len(self.samples) < 10:  # Minimum required samples
+            return False, "Insufficient samples collected"
+            
+        # Remove outliers using IQR method
+        samples = np.array(self.samples)
+        q1 = np.percentile(samples, 25)
+        q3 = np.percentile(samples, 75)
+        iqr = q3 - q1
+        lower_bound = q1 - 1.5 * iqr
+        upper_bound = q3 + 1.5 * iqr
+        filtered_samples = samples[(samples >= lower_bound) & (samples <= upper_bound)]
+        
+        if len(filtered_samples) < 5:
+            return False, "Too many outliers in calibration data"
+            
+        # Calculate noise floor as the 10th percentile
+        self.noise_floor = np.percentile(filtered_samples, 10)
+        
+        # Set min/max thresholds
+        self.min_intensity = np.percentile(filtered_samples, 20)  # 20th percentile
+        self.max_intensity = np.percentile(filtered_samples, 90)  # 90th percentile
+        
+        self.is_calibrating = False
+        return True, "Calibration completed successfully"
 
 
 class VolumeControlApp:
@@ -135,6 +190,8 @@ class VolumeControlApp:
         self.root = root
         self.root.title("Voice Volume Controller")
         self.root.geometry("1000x800")
+        self.calibration = CalibrationManager()
+        self.calibration_progress = tk.DoubleVar(value=0)
         
         # Initialize configuration
         self.config = Config()
@@ -191,6 +248,131 @@ class VolumeControlApp:
         
         logger.info("Application initialized successfully")
 
+
+    def _create_calibration_gui(self):
+        """Create calibration-specific GUI elements"""
+        calibration_frame = ttk.LabelFrame(self.main_frame, text="Calibration", padding="10")
+        calibration_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        # Calibration controls
+        controls_frame = ttk.Frame(calibration_frame)
+        controls_frame.pack(fill=tk.X, pady=5)
+        
+        self.calibrate_button = ttk.Button(
+            controls_frame, 
+            text="Start Calibration",
+            command=self._toggle_calibration
+        )
+        self.calibrate_button.pack(side=tk.LEFT, padx=5)
+        
+        # Progress bar
+        self.calibration_progress_bar = ttk.Progressbar(
+            controls_frame,
+            variable=self.calibration_progress,
+            mode='determinate',
+            length=200
+        )
+        self.calibration_progress_bar.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        
+        # Status label
+        self.calibration_status = ttk.Label(calibration_frame, text="Not calibrated")
+        self.calibration_status.pack(fill=tk.X, pady=5)
+        
+    def _toggle_calibration(self):
+        """Start or stop calibration process"""
+        if not self.calibration.is_calibrating:
+            # Start calibration
+            self.calibration.start_calibration()
+            self.calibrate_button.configure(text="Cancel Calibration")
+            self.calibration_status.configure(text="Speak at different volumes...")
+            
+            # Schedule progress updates
+            self._update_calibration_progress()
+            
+            # Schedule automatic completion
+            self.root.after(
+                int(self.calibration.calibration_duration * 1000), 
+                self._complete_calibration
+            )
+        else:
+            # Cancel calibration
+            self.calibration.is_calibrating = False
+            self._reset_calibration_gui()
+            
+    def _update_calibration_progress(self):
+        """Update calibration progress bar"""
+        if self.calibration.is_calibrating:
+            progress = self.calibration.get_progress()
+            self.calibration_progress.set(progress)
+            
+            if progress < 100:
+                self.root.after(100, self._update_calibration_progress)
+                
+    def _complete_calibration(self):
+        """Complete the calibration process"""
+        if not self.calibration.is_calibrating:
+            return
+            
+        success, message = self.calibration.finish_calibration()
+        
+        if success:
+            # Update thresholds
+            self.calibration_min = self.calibration.min_intensity
+            self.calibration_max = self.calibration.max_intensity
+            
+            # Update GUI
+            self.calibration_status.configure(
+                text=f"Calibrated: {self.calibration_min:.1f}dB - {self.calibration_max:.1f}dB"
+            )
+            
+            # Save to config
+            self.config.settings["calibration"] = {
+                "min": self.calibration_min,
+                "max": self.calibration_max,
+                "noise_floor": self.calibration.noise_floor
+            }
+            self.config.save_config()
+            
+            messagebox.showinfo("Calibration Complete", 
+                              "Calibration successful!\n\n"
+                              f"Noise floor: {self.calibration.noise_floor:.1f}dB\n"
+                              f"Dynamic range: {self.calibration_min:.1f}dB - {self.calibration_max:.1f}dB")
+        else:
+            messagebox.showerror("Calibration Failed", message)
+            
+        self._reset_calibration_gui()
+        
+    def _reset_calibration_gui(self):
+        """Reset calibration GUI elements"""
+        self.calibrate_button.configure(text="Start Calibration")
+        self.calibration_progress.set(0)
+        
+    def _calculate_volume_from_intensity(self, intensity):
+        """Calculate volume level with improved noise handling"""
+        if self.calibration.is_calibrating:
+            self.calibration.add_sample(intensity)
+            return self.current_volume.get()
+        
+        # Apply noise floor
+        if hasattr(self.calibration, 'noise_floor') and intensity <= self.calibration.noise_floor:
+            return 0.0
+        
+        # Calculate normalized volume
+        min_intensity = self.calibration_min
+        max_intensity = self.calibration_max
+        
+        if max_intensity <= min_intensity:
+            return 0.0
+            
+        # Apply non-linear mapping for better control
+        normalized = (intensity - min_intensity) / (max_intensity - min_intensity)
+        normalized = max(0.0, min(1.0, normalized))
+        
+        # Apply cubic mapping for more natural response
+        mapped = normalized ** 3
+        
+        # Apply sensitivity
+        return min(1.0, mapped * self.sensitivity.get())
     def _setup_shortcuts(self):
         self.root.bind('<space>', lambda e: self._toggle_monitoring())
         self.root.bind('<c>', lambda e: self._start_calibration())
@@ -272,33 +454,31 @@ class VolumeControlApp:
 
     def _create_gui(self):
         # Main frame
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        self.main_frame = ttk.Frame(self.root, padding="10")
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
         
         # Control frame
-        control_frame = ttk.LabelFrame(main_frame, text="Controls", padding="10")
+        control_frame = ttk.LabelFrame(self.main_frame, text="Controls", padding="10")
         control_frame.pack(fill=tk.X, padx=5, pady=5)
         
         # Start/Stop button
         self.toggle_button = ttk.Button(control_frame, text="Start Monitoring",
-                                      command=self._toggle_monitoring)
+                                    command=self._toggle_monitoring)
         self.toggle_button.pack(side=tk.LEFT, padx=5)
         
-        # Calibration button
-        self.calibrate_button = ttk.Button(control_frame, text="Calibrate",
-                                         command=self._start_calibration)
-        self.calibrate_button.pack(side=tk.LEFT, padx=5)
+        # Create calibration GUI elements
+        self._create_calibration_gui()  # Add this line to create calibration elements
         
         # Sensitivity control
-        sensitivity_frame = ttk.LabelFrame(main_frame, text="Sensitivity", padding="10")
+        sensitivity_frame = ttk.LabelFrame(self.main_frame, text="Sensitivity", padding="10")
         sensitivity_frame.pack(fill=tk.X, padx=5, pady=5)
         
         sensitivity_slider = ttk.Scale(sensitivity_frame, from_=0.1, to=2.0,
-                                     orient=tk.HORIZONTAL, variable=self.sensitivity)
+                                    orient=tk.HORIZONTAL, variable=self.sensitivity)
         sensitivity_slider.pack(fill=tk.X, padx=5)
         
         # Metrics frame
-        metrics_frame = ttk.LabelFrame(main_frame, text="Current Metrics", padding="10")
+        metrics_frame = ttk.LabelFrame(self.main_frame, text="Current Metrics", padding="10")
         metrics_frame.pack(fill=tk.X, padx=5, pady=5)
         
         # Volume indicator
@@ -316,7 +496,7 @@ class VolumeControlApp:
         self.intensity_bar.pack(side=tk.LEFT, padx=5)
         
         # Visualization frame
-        viz_frame = ttk.LabelFrame(main_frame, text="Visualization", padding="10")
+        viz_frame = ttk.LabelFrame(self.main_frame, text="Visualization", padding="10")
         viz_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         # Visualization mode selector
@@ -383,27 +563,27 @@ class VolumeControlApp:
         normalized *= self.sensitivity.get()
         return min(max(normalized, 0), 1)
 
-    def _start_calibration(self):
-        if not self.is_calibrating:
-            self.is_calibrating = True
-            self.calibration_samples = []
-            self.calibrate_button.configure(text="Stop Calibration")
-            messagebox.showinfo("Calibration Started", 
-                              "Please make sounds at various volumes for calibration.\n"
-                              "Click 'Stop Calibration' when done.")
-        else:
-            self._finish_calibration()
+    # def _start_calibration(self):
+    #     if not self.is_calibrating:
+    #         self.is_calibrating = True
+    #         self.calibration_samples = []
+    #         self.calibrate_button.configure(text="Stop Calibration")
+    #         messagebox.showinfo("Calibration Started", 
+    #                           "Please make sounds at various volumes for calibration.\n"
+    #                           "Click 'Stop Calibration' when done.")
+    #     else:
+    #         self._finish_calibration()
 
-    def _finish_calibration(self):
-        self.is_calibrating = False
-        self.calibrate_button.configure(text="Calibrate")
+    # def _finish_calibration(self):
+    #     self.is_calibrating = False
+    #     self.calibrate_button.configure(text="Calibrate")
         
-        if len(self.calibration_samples) > 0:
-            self.calibration_min = min(self.calibration_samples)
-            self.calibration_max = max(self.calibration_samples)
-            messagebox.showinfo("Calibration Complete",
-                              f"Calibration range: {self.calibration_min:.1f} - "
-                              f"{self.calibration_max:.1f} dB")
+    #     if len(self.calibration_samples) > 0:
+    #         self.calibration_min = min(self.calibration_samples)
+    #         self.calibration_max = max(self.calibration_samples)
+    #         messagebox.showinfo("Calibration Complete",
+    #                           f"Calibration range: {self.calibration_min:.1f} - "
+    #                           f"{self.calibration_max:.1f} dB")
 
     def _setup_plot(self):
         self.fig = Figure(figsize=(8, 4), dpi=100)
