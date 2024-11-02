@@ -18,7 +18,7 @@ A voice controlled application that turns your music up or down based on how lou
 
 
 ### The Problem (that doesn't exist)
-
+Control your volume by yelling—because who needs buttons when you have lungs?
 
 ### The Solution (that nobody asked for)
 [How are you solving it? Keep it fun!]
