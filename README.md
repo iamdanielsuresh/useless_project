@@ -48,7 +48,7 @@ For Software:
 git clone https://github.com/iamdanielsuresh/useless_project.git
 
 # Navigate to project directory
-cd VOICECONTROL
+cd useless_project
 
 # Install required packages
 pip install -r requirements.txt
