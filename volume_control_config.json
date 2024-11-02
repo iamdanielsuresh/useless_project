@@ -5,8 +5,8 @@
     "audio_feedback": true,
     "visualization_mode": "Line Graph",
     "calibration": {
-        "min": 20.751223201077423,
-        "max": 40.570277206999855,
-        "noise_floor": 12.943559090789758
+        "min": 10.141412055754305,
+        "max": 35.79158157639717,
+        "noise_floor": 9.486443467104905
     }
 }
