@@ -1,0 +1,9 @@
+sounddevice>=1.84.0
+numpy>=1.21.0
+matplotlib>=3.5.0
+pygame>=2.1.0
+comtypes>=1.1.14; platform_system=="Windows"
+pycaw>=20181226; platform_system=="Windows"
+tkinter; platform_system!="Windows"  # Usually comes with Python installation
+python-tk; platform_system=="Linux"  # For Linux systems
+pandas>=1.3.0  # Required for DataFrame operations
