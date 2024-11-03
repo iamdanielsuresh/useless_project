@@ -2,12 +2,15 @@
 
 # Voice-Controlled Volume Adjuster 🎯
 
-## Basic Details
-### Team Name: KrazyPitz
+## 👥 Team Details
+**Team Name: `KrazyPitz`**
+
 ### Team Members
-- Team Lead: Daniel Suresh - CUSAT
-- Member 2: Sreeram P - CUSAT
-- Member 3: Niju Roy - CUSAT
+| Role | Name | Institution |
+|------|------|-------------|
+| Team Lead | Daniel Suresh | CUSAT |
+| Member | Sreeram P | CUSAT |
+| Member | Niju Roy | CUSAT |
 
 ### Project Description
 A voice-controlled application that turns your music up or down based on how loudly you yell at it! The app uses real-time audio processing to detect voice intensity and adjusts system volume accordingly.
@@ -17,6 +20,29 @@ Control your volume by yelling—because who needs buttons when you have lungs? 
 
 ### The Solution (that nobody asked for)
 An app that adjusts your device's volume based on how loudly you yell—perfect for those moments when your voice needs to be heard... by your speakers! 
+
+
+## 🎯 Quick Workflow
+1. **Launch the Application**
+   ```bash
+   python main.py
+   ```
+2. **Initial Setup**
+   - Click "Start Calibration"
+   - Follow the calibration prompts
+   - Wait for calibration to complete
+
+3. **Testing the Magic**
+   - Play your favorite music
+   - Return to the application
+   - Click "Start Monitoring"
+   - Try yelling or speaking at different volumes
+   - Watch as your system volume responds to your voice intensity!
+
+4. **Fine-tune (Optional)**
+   - Adjust sensitivity if needed
+   - Try different visualization modes
+   - Experiment with different volume levels
 
 ## ✨ Key Features
 - 🎤 Real-time voice intensity detection
