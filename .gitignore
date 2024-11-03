@@ -1,3 +1,32 @@
 venv/
 voice-control.py
 
+.DS_Store
+
+
+# Project specific files
+logs/
+*.log
+volumecontrol.log
+config/*.json
+!config/default_settings.json
+
+# Runtime files
+*.pyc
+__pycache__/
+.pytest_cache/
+
+# Environment specific
+.env
+.venv
+settings.local.json
+
+
+# System specific
+.DS_Store
+Thumbs.db
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
