@@ -6,10 +6,10 @@ voice-control.py
 
 # Project specific files
 logs/
-*.log
+.log
 volumecontrol.log
-config/*.json
-!config/default_settings.json
+.json
+default_settings.json
 
 # Runtime files
 *.pyc

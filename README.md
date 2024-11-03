@@ -1,10 +1,8 @@
-<img width="1280" alt="readme-banner" src="https://github.com/user-attachments/assets/35332e92-44cb-425b-9dff-27bcf1023c6c">
-
 # Voice-Controlled Volume Adjuster 🎯
+### Where Volume Control Gets Vocal
 
-## 👥 Team Details
-**Team Name: `KrazyPitz`**
-
+## Basic Details
+### Team Name: KrazyPitz
 ### Team Members
 | Role | Name | Institution |
 |------|------|-------------|
@@ -20,29 +18,6 @@ Control your volume by yelling—because who needs buttons when you have lungs? 
 
 ### The Solution (that nobody asked for)
 An app that adjusts your device's volume based on how loudly you yell—perfect for those moments when your voice needs to be heard... by your speakers! 
-
-
-## 🎯 Quick Workflow
-1. **Launch the Application**
-   ```bash
-   python main.py
-   ```
-2. **Initial Setup**
-   - Click "Start Calibration"
-   - Follow the calibration prompts
-   - Wait for calibration to complete
-
-3. **Testing the Magic**
-   - Play your favorite music
-   - Return to the application
-   - Click "Start Monitoring"
-   - Try yelling or speaking at different volumes
-   - Watch as your system volume responds to your voice intensity!
-
-4. **Fine-tune (Optional)**
-   - Adjust sensitivity if needed
-   - Try different visualization modes
-   - Experiment with different volume levels
 
 ## ✨ Key Features
 - 🎤 Real-time voice intensity detection
@@ -77,22 +52,16 @@ comtypes >= 1.1.10 (Windows only)
 
 ### Project Structure
 ```
-voice_volume_controller/
-├── main.py                 # Application entry point
-├── config/
-│   └── settings.json      # User configuration
-├── src/
-│   ├── audio/
-│   │   ├── processor.py   # Audio processing
-│   │   └── controller.py  # Volume control
-│   ├── gui/
-│   │   ├── main_window.py # Main interface
-│   │   └── widgets.py     # Custom widgets
-│   └── utils/
-│       ├── calibration.py # Calibration logic
-│       └── logging.py     # Logging setup
-├── logs/                  # Application logs
-└── tests/                 # Unit tests
+voice-controlled-volume-adjuster/
+├── Screenshots/           # Application screenshots
+├── venv/                 # Virtual environment (auto-generated)
+├── .gitignore           # Git ignore rules
+├── LICENSE              # MIT License
+├── main.py             # Application entry point
+├── README.md           # Project documentation
+├── requirements.txt    # Python dependencies
+├── volume_control_config.json  # Configuration file
+└── volume_control.log  # Application logs
 ```
 
 ### Detailed Installation Guide
@@ -133,25 +102,24 @@ sudo apt-get install libpulse-dev python3-dev
 # No additional steps required
 ```
 
-### Troubleshooting Common Installation Issues
+### Configuration
+The project uses JSON configuration files:
+- `volume_control_config.json` - Contains user settings and calibration data
 
-1. **Missing Compiler Error**
-   ```bash
-   # Windows
-   pip install wheel
-   
-   # Linux
-   sudo apt-get install python3-dev build-essential
-   ```
-
-2. **PortAudio Error**
-   ```bash
-   # Linux
-   sudo apt-get install portaudio19-dev
-   
-   # macOS
-   brew install portaudio
-   ```
+Default configuration:
+```json
+{
+  "sensitivity": 1.0,
+  "max_history": 100,
+  "update_interval": 100,
+  "audio_feedback": true,
+  "visualization_mode": "Line Graph",
+  "calibration": {
+    "min": 0,
+    "max": 100
+  }
+}
+```
 
 ## 🎮 Usage Guide
 
@@ -187,46 +155,6 @@ sudo apt-get install libpulse-dev python3-dev
    - Adjust sensitivity slider
    - Test with different volumes
    - Recalibrate if environment changes
-
-### Visualization Modes
-
-1. **Line Graph**
-   - Real-time intensity tracking
-   - Historical volume changes
-   - Adjustable time window
-
-2. **Bar Graph**
-   - Current intensity level
-   - Current volume level
-   - Instant feedback
-
-3. **Meter**
-   - VU meter style display
-   - Professional audio visualization
-   - Peak level indicators
-
-## 🔧 Advanced Configuration
-
-### Configuration File (settings.json)
-```json
-{
-  "sensitivity": 1.0,
-  "max_history": 100,
-  "update_interval": 100,
-  "audio_feedback": true,
-  "visualization_mode": "Line Graph",
-  "calibration": {
-    "min": 0,
-    "max": 100
-  }
-}
-```
-
-### Performance Optimization
-- Adjust `update_interval` for smoother/faster response
-- Modify `max_history` for memory usage
-- Enable/disable audio feedback
-- Fine-tune calibration values
 
 ## 🐛 Troubleshooting Guide
 
@@ -284,7 +212,7 @@ The application includes automatic recovery for:
 - [ ] Multi-device support
 
 ## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Contributing
 1. Fork the repository
