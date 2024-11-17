@@ -1,26 +1,23 @@
+# Virtual environment
 venv/
+.venv/
+env/
+
+# Python files
 voice-control.py
-
-.DS_Store
-
-
-# Project specific files
-logs/
-.log
-volumecontrol.log
-.json
-default_settings.json
-
-# Runtime files
 *.pyc
 __pycache__/
 .pytest_cache/
 
+# Project specific files
+*.log
+volume_control.log
+*.json
+volume_control_config.json
+
 # Environment specific
 .env
-.venv
 settings.local.json
-
 
 # System specific
 .DS_Store

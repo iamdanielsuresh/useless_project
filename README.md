@@ -1,6 +1,10 @@
 # Voice-Controlled Volume Adjuster 🎯
 ### Where Volume Control Gets Vocal
 
+[Demo Video](https://youtu.be/kxwZTgltR7s)
+
+## Basic Details
+
 ## Basic Details
 ### Team Name: KrazyPitz
 ### Team Members
